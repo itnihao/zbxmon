@@ -25,11 +25,16 @@ def discovery_mysql(*args):
     '''
     import psutil
     instance_list=[]
+    local_ip = Monitor.get_local_ip()
+    named_ip = local_ip
     for proc in [i for i in psutil.process_iter() if i.name() == BINNAME]:
         listen = list(sorted([laddr.laddr for laddr in proc.get_connections() if laddr.status == 'LISTEN'])[0])
-        if listen[0] == '0.0.0.0' or listen[0] == '::' or listen[0] == '127.0.0.1' or listen[0] == '':
-            listen[0] = Monitor.get_local_ip()
+        if listen[0] == '0.0.0.0' or listen[0] == '::' or listen[0] == '':
+            listen[0] = local_ip
+        if listen[0] == '127.0.0.1' or listen[0] == '::1':
+            named_ip = listen[0]
         sock_path = ''
+
         if os.path.exists(os.path.join(proc.cwd(), 'mysql.sock')):
             sock_path=os.path.join(proc.cwd(), 'mysql.sock')
         else:
@@ -49,7 +54,7 @@ def discovery_mysql(*args):
     result=[]
     for host,port,socket in instance_list:
         if MySQL_Monitor.mysql_version(socket=socket)>['4','9']:
-            result.append([host,port])
+            result.append([host, port, named_ip])
             if MySQL_Monitor.mysql_ping(host=str(host), port=int(port), user=args[0], passwd=args[1]) == -1:
                 res = MySQL_Monitor.grant_monitor_user(socket=str(socket), user=args[0], host=str(host),
                                                        passwd=args[1])

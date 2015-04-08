@@ -23,7 +23,8 @@ class Monitor(object):
         """
         self.service = service
         self._data = {'file_info': {'file': 'default'}}
-        self._app = self.service + '_' + instance if instance else 'default'
+        self._instance = instance if instance else 'default'
+        self._app = self.service + '_' + self._instance
         self.get_data_func, self.discovery_func, self.bin_name = get_func_list(self.service)
         self._result = {'data': []}
         # self._fs = ':'
@@ -154,7 +155,6 @@ class Monitor(object):
 
         return {} if not self._data.has_key(instance) else self._data[instance]
 
-
     def _update_version(self, instance, item, item_list=None):
 
         if item_list:
@@ -198,7 +198,7 @@ class Monitor(object):
 
         self._cache_file.seek(0)
         self._cache_file.truncate()
-        self._cache_file.write(json.dumps(self._data, indent=4, sort_keys=True))
+        self._cache_file.write(json.dumps(self._data))
         self._cache_file.flush()
 
     @classmethod
@@ -215,9 +215,12 @@ class Monitor(object):
                 if proc.name() == proc_name:
                     listen = list(
                         sorted([laddr.laddr for laddr in proc.get_connections('inet') if laddr.status == 'LISTEN'])[0])
-                    if listen[0] == '0.0.0.0' or listen[0] == '::' or listen[0] == '127.0.0.1' or listen[0] == '':
-                        listen[0] = Monitor.get_local_ip()
-                    result.append([str(listen[0]), str(listen[1])])
+                    if listen[0] == '0.0.0.0' or listen[0] == '::' or listen[0] == '127.0.0.1' or listen[0] == '' or \
+                            listen[0] == '::1':
+                        listen.append(Monitor.get_local_ip())
+                    else:
+                        listen.append(listen[0])
+                    result.append([str(listen[0]), str(listen[1]), str(listen[2])])
             except psutil.NoSuchProcess:
                 pass
 

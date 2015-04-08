@@ -10,6 +10,7 @@ from zbxmon.monitor import Monitor
 
 BINNAME = 'redis-server'
 
+
 def discovery_redis():
     """
     find redis instance
@@ -19,6 +20,7 @@ def discovery_redis():
     redises = []
     redis_conf_path_root = '/data'
     redis_conf_file_name = 'redis.conf'
+    local_ip = Monitor.get_local_ip()
     for redis_process in [x
                           for x in psutil.process_iter()
                           if len(x.cmdline()) > 0 and os.path.basename(x.exe()) == BINNAME]:
@@ -28,6 +30,11 @@ def discovery_redis():
                                            if laddr.status == 'LISTEN'])[0]
         except:
             continue
+
+        if redis_ip == '0.0.0.0':
+            redis_ip = local_ip
+
+        redis_named_ip = redis_ip
 
         redis_passwd = ''
         config_files = []
@@ -61,10 +68,13 @@ def discovery_redis():
                     break
             except:
                 pass
-        if redis_ip=='0.0.0.0':
-            redis_ip=Monitor.get_local_ip()
-        redises.append([redis_ip, redis_port, redis_passwd])
+
+        if redis_named_ip == '127.0.0.1' or redis_named_ip == '::1':
+            redis_named_ip = local_ip
+        redises.append([redis_ip, redis_port, redis_passwd, redis_named_ip])
     return redises
+
+
 def get_redis_data(instance_name, *args):
     """
     get monitor data from redis
@@ -73,7 +83,8 @@ def get_redis_data(instance_name, *args):
     """
 
     ip, port, passwd = instance_name.split('/')
-    passwd=Monitor.decode_password(passwd)
+    if passwd:
+        passwd=Monitor.decode_password(passwd)
 
     r = redis.StrictRedis(host=ip, port=port, password=passwd)
     d = r.info()
